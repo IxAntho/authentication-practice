@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, url_for, redirect, flash, send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import Integer, String
 from flask_login import UserMixin, login_user, LoginManager, login_required, current_user, logout_user
@@ -37,15 +38,35 @@ with app.app_context():
         print("Database already exists.")
 
 
-
 @app.route('/')
 def home():
     return render_template("index.html")
 
 
-@app.route('/register')
+@app.route('/register', methods=['GET', 'POST'])
 def register():
-    return render_template("register.html")
+    if request.method == 'POST':
+        # Get form data from the request object
+        name = request.form['name']
+        email = request.form['email']
+        password = request.form['password']
+
+        new_user = User(
+            email=email,
+            password=password,
+            name=name
+        )
+        db.session.add(new_user)
+        try:
+            db.session.commit()
+        except IntegrityError as e:
+            print(f"Error: {str(e)}")
+            db.session.rollback()
+
+        return redirect(url_for('secrets', username=name))
+    else:
+        # If the request is GET, render the registration form template
+        return render_template('register.html')
 
 
 @app.route('/login')
@@ -55,7 +76,8 @@ def login():
 
 @app.route('/secrets')
 def secrets():
-    return render_template("secrets.html")
+    name = request.args.get('username')
+    return render_template("secrets.html", username=name)
 
 
 @app.route('/logout')
