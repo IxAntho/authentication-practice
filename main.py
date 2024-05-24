@@ -49,7 +49,8 @@ def load_user(user_id):
 
 @app.route('/')
 def home():
-    return render_template("index.html")
+    print(current_user.is_active, current_user.is_active)
+    return render_template("index.html", logged_in=current_user.is_active)
 
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -110,7 +111,7 @@ def login():
 @app.route('/secrets')
 @login_required
 def secrets():
-    return render_template("secrets.html", user=current_user)
+    return render_template("secrets.html", user=current_user, logged_in=current_user.is_active)
 
 
 @app.route('/logout')
