@@ -44,7 +44,7 @@ with app.app_context():
 # Retrieving user object
 @login_manager.user_loader
 def load_user(user_id):
-    return User.get(user_id)
+    return User.query.get(int(user_id))
 
 
 @app.route('/')
@@ -58,6 +58,13 @@ def register():
         # Get form data from the request object
         name = request.form['name']
         email = request.form['email']
+        result = db.session.execute(db.select(User).where(User.email == email))
+        # Note, email in db is unique so will only have one result.
+        user = result.scalar()
+        if user:
+            # User already exists
+            flash("You've already signed up with that email, log in instead!")
+            return redirect(url_for('login'))
         password = request.form['password']
         hash_password = generate_password_hash(password, method='pbkdf2:sha256', salt_length=8)
 
@@ -69,9 +76,12 @@ def register():
         db.session.add(new_user)
         try:
             db.session.commit()
+            login_user(new_user)
         except IntegrityError as e:
             print(f"Error: {str(e)}")
             db.session.rollback()
+            flash(f'error: {e}')
+            return redirect(url_for("home"))
 
         return redirect(url_for('secrets', username=name))
     else:
@@ -88,8 +98,12 @@ def login():
         if user and check_password_hash(user.password, password):
             login_user(user)
             return redirect(url_for('secrets'))
-        else:
-            return 'Invalid email or password'
+        elif not user:
+            flash("This email doesn't exist. Please try again.")
+            return redirect('login')
+        elif not check_password_hash(user.password, password):
+            flash("Wrong password. Please try again.")
+            return redirect('login')
     return render_template("login.html")
 
 
